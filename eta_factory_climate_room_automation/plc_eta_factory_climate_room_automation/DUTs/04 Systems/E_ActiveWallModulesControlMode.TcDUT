@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <DUT Name="E_ActiveWallModulesControlMode" Id="{7ce7ac2b-3243-4ca7-b28b-845c407fb80b}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_ActiveWallModulesControlMode :
+(
+	On := 0, //100% on
+	Discrete := 1, //use hysteresis controller
+	Continous := 2 //use PI-Controller
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

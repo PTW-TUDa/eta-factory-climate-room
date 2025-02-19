@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <DUT Name="ST_ActiveWallModulesDefaultParameters" Id="{23bb1f66-e6cc-4206-b521-b89fd7b0c66e}">
+    <Declaration><![CDATA[TYPE ST_ActiveWallModulesDefaultParameters :
+STRUCT
+	aSetPointLimitsTemperature : ARRAY[1..2] OF REAL := [5,30];
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

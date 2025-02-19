@@ -1,0 +1,618 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_ActiveWallModulesSystem" Id="{b7f3380d-2b1e-4328-81a3-491b9389e6a8}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_ActiveWallModulesSystem EXTENDS FB_SystemContinous
+VAR_INPUT
+	nControlModeAutomatic : E_ActiveWallModulesControlMode;	
+	bHeatingModeAutomatic : BOOL; //control mode: 0 = heating mode; 1 = cooling mode
+	fHysteresisRangeAutomatic : REAL; //default unequalt to zero
+	stAmbientState : ST_AmbientState;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	{attribute 'OPC.UA.DA' := '1'}
+ 	localSetParameters : ST_ActiveWallModulesSetParameters;
+	
+	localDefaultParameters : ST_ActiveWallModulesDefaultParameters;
+	
+	//pumps
+	stPU492DefaultParameters : ST_PumpGrundfosMagna3DefaultParameters;
+	stPU592DefaultParameters : ST_PumpGrundfosMagna3DefaultParameters;
+	PU492 : FB_PumpGrundfosMagna3 := (ST_DefaultParameters := stPU492DefaultParameters);
+	PU592 : FB_PumpGrundfosMagna3 := (ST_DefaultParameters := stPU592DefaultParameters);	
+	//valves
+	stSV490DefaultParameters : ST_DiscreteValveDefaultParameters;
+	stSV491DefaultParameters : ST_DiscreteValveDefaultParameters;
+	stSV493DefaultParameters : ST_DiscreteValveDefaultParameters;
+	stSV494DefaultParameters : ST_DiscreteValveDefaultParameters;
+	
+	//fDefaultPosition = 100 means bypass for bSetStatusOn = false
+	stRV492DefaultParameters : ST_MixingValveDefaultParameters := (bFeedbackSignal := FALSE, fControllerAmplification := 5, tControllerIntegralTime := T#100M, bARWOnIPartOnly := FALSE, fDefaultPosition := 100, tTaskCycleTime := GlobalVariables.tTaskCycleTime_MAIN, tCtrlCycleTime := GlobalVariables.tCtrlCycleTime_MAIN);
+	
+	SV490 : FB_DiscreteValve := (ST_DefaultParameters := stSV490DefaultParameters);
+	SV491 : FB_DiscreteValve := (ST_DefaultParameters := stSV491DefaultParameters);
+	SV493 : FB_DiscreteValve := (ST_DefaultParameters := stSV493DefaultParameters);
+	SV494 : FB_DiscreteValve := (ST_DefaultParameters := stSV494DefaultParameters);
+	
+	RV492 : FB_MixingValve := (ST_DefaultParameters := stRV492DefaultParameters); 
+	
+	//sensors
+	TVL492 : AutomationBaseClasses.FB_TemperatureSensor; //supply temperature
+	TRL492 : AutomationBaseClasses.FB_TemperatureSensor; //return temperature
+	TVL592 : AutomationBaseClasses.FB_TemperatureSensor; //supply temperature walls
+	TRL592 : AutomationBaseClasses.FB_TemperatureSensor; //return temperature walls
+	
+	WMZ491 : FB_MollineC3HeatCounter; //cooling network
+	WMZ493 : FB_MollineC3HeatCounter; //heating network
+	WMZ592 : FB_MollineC3HeatCounter;
+	
+	//internal variables
+	bHeatingMode 			: BOOL;
+	bSetStatusOn_PU492 		: BOOL;
+	bSetStatusOn_PU592 		: BOOL;
+	bSetStatusOn_SV490		: BOOL;
+	bSetStatusOn_SV491		: BOOL;
+	bSetStatusOn_SV493		: BOOL;
+	bSetStatusOn_SV494		: BOOL;
+	bSetStatusOn_RV492		: BOOL;
+	
+	nControlMode_RV492 		: E_MixingValveControlMode;
+	fSetPoint_RV492 		: REAL;	
+	nControlMode			: E_ActiveWallModulesControlMode;
+	fHysteresisRange		: REAL;
+
+	//controller
+	PI_Controller				: FB_CTRL_PI;
+	PI_Controller_Parameters	: ST_CTRL_PI_PARAMS;
+	TwoPointControllerHeating		: FB_CTRL_2POINT;
+	TwoPointControllerCooling		: FB_CTRL_2POINT;
+	TwoPointControllerParameters 	: ST_CTRL_2POINT_PARAMS;
+	
+	//triggers
+	SwitchToHeating : R_TRIG;
+	SwitchToCooling : F_TRIG;
+	bFinishedSwitchMode : BOOL := TRUE;
+
+	
+	//clock
+	bStartTimer : BOOL;
+	Timer : TON;
+
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[SelectLocalControlMode();
+SwitchToHeating(CLK := bHeatingMode);
+SwitchToCooling(CLK := bHeatingMode);
+
+Timer(IN := bStartTimer,
+	PT := T#120S);
+MAIN();
+
+//pumps
+PU492.GetState_Profibus();
+PU492(bSetStatusOnAutomatic := bSetStatusOn_PU492,
+	bAlgorithmPermission := bAlgorithmPermission,
+	fSetPointAutomatic := 100,
+	nControlModeAutomatic := 0);
+PU492.SetState_Profibus();
+
+PU592.GetState_Profibus();
+PU592(bSetStatusOnAutomatic := bSetStatusOn_PU592,
+	bAlgorithmPermission := bAlgorithmPermission,
+	fSetPointAutomatic := 100,
+	nControlModeAutomatic := 0);
+PU592.SetState_Profibus();
+
+//valves
+RV492.GetState_AI();
+RV492(bSetStatusOnAutomatic := bSetStatusOn_RV492,
+	fSetPointAutomatic := fSetPoint_RV492,
+	nControlModeAutomatic := nControlMode_RV492,
+	bAlgorithmPermission := bAlgorithmPermission,
+	fTemperatureExternal := stAmbientState.fRoomTemperature);
+RV492.SetState_AO();
+
+SV490.GetState_BI();
+SV490(bSetStatusOnAutomatic := bSetStatusOn_SV490,
+	bAlgorithmPermission := bAlgorithmPermission);
+SV490.SetState_BO();
+
+SV491.GetState_BI();
+SV491(bSetStatusOnAutomatic := bSetStatusOn_SV491,
+	bAlgorithmPermission := bAlgorithmPermission);
+SV491.SetState_BO();
+
+SV493.GetState_BI();
+SV493(bSetStatusOnAutomatic := bSetStatusOn_SV493,
+	bAlgorithmPermission := bAlgorithmPermission);
+SV493.SetState_BO();
+
+SV494.GetState_BI();
+SV494(bSetStatusOnAutomatic := bSetStatusOn_SV494,
+	bAlgorithmPermission := bAlgorithmPermission);
+SV494.SetState_BO();
+
+//sensors
+TVL492();
+TVL492.GetState_AI();
+TRL492();
+TRL492.GetState_AI();
+
+TVL592();
+TVL592.GetState_AI();
+TRL592();
+TRL592.GetState_AI();
+
+WMZ491(aHeatCounterTelegramm := MBus.Telegramm_WMZ_491);
+WMZ493(aHeatCounterTelegramm := MBus.Telegramm_WMZ_493);
+WMZ592(aHeatCounterTelegramm := MBus.Telegramm_WMZ_592);
+	
+
+]]></ST>
+    </Implementation>
+    <Method Name="CheckError" Id="{2c83315e-ba8e-4487-8c69-8e93e3436cef}">
+      <Declaration><![CDATA[METHOD PROTECTED  CheckError : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bError : BOOL;
+END_VAR
+VAR
+	bError_PU492 : BOOL;
+	bError_PU592 : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//check pumps for errors
+bError_PU492 := PU492.bError;
+bError_PU592 := PU592.bError;
+
+bError := bError_PU492 OR bError_PU592;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="LocalControl" Id="{85333eb6-def4-42ca-8da1-2f4a8194f02c}">
+      <Declaration><![CDATA[METHOD PRIVATE LocalControl : BOOL
+VAR_INPUT
+END_VAR
+
+VAR
+	TwoPointControllerOutput : BOOL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE nControlMode OF
+	0: //100%
+	nControlMode_RV492 := 0;	//position mode
+	fSetPoint_RV492 := 0; //0 is fully opened
+	
+	1: //Hysteresis
+	nControlMode_RV492 := 0;	//position mode
+	TwoPointControllerParameters.tCtrlCycleTime := T#1S;
+	TwoPointControllerParameters.tTaskCycleTime := T#10MS;
+	IF fHysteresisRange < 1 THEN
+		TwoPointControllerParameters.fHysteresisRange := 1;
+	ELSE
+		TwoPointControllerParameters.fHysteresisRange := fHysteresisRange;
+	END_IF;
+	
+	TwoPointControllerHeating(
+			fSetpointValue := fSetPoint,
+			fActualValue := stAmbientState.fRoomTemperature,
+			bManSyncValue := 0,
+			bSync := FALSE,
+			emode := 2,
+			stParams := TwoPointControllerParameters);
+			
+	TwoPointControllerCooling(
+			fSetpointValue := stAmbientState.fRoomTemperature,
+			fActualValue := fSetPoint,
+			bManSyncValue := 0,
+			bSync := FALSE,
+			emode := 2,
+			stParams := TwoPointControllerParameters);
+
+	
+	IF bHeatingMode THEN
+		TwoPointControllerOutput := TwoPointControllerHeating.bOut;
+	ELSE
+		TwoPointControllerOutput := TwoPointControllerCooling.bOut;
+	END_IF
+	
+	IF TwoPointControllerOutput THEN
+		bSetStatusOn_PU492 := TRUE;
+		bSetStatusOn_PU592 := TRUE;
+		bSetStatusOn_RV492 := TRUE;
+		fSetPoint_RV492 := 0; //0 is fully opened
+	ELSE
+		bSetStatusOn_PU492 := FALSE;
+		bSetStatusOn_PU592 := FALSE;
+		bSetStatusOn_RV492 := FALSE;
+		fSetPoint_RV492 := 100; //0 is fully opened
+	END_IF	
+	
+			
+	2: //Continous with PI-Controller
+	IF bHeatingMode THEN
+		nControlMode_RV492 := 2; //inverted because of internal valve control mode
+	ELSE
+		nControlMode_RV492 := 1;
+	END_IF
+	fSetPoint_RV492 := fSetPoint;
+	bSetStatusOn_PU492 := TRUE;
+	bSetStatusOn_PU592 := TRUE;
+
+END_CASE
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Operational" Id="{310e64fc-dbfb-49a0-b241-9a767733d0d3}">
+      <Declaration><![CDATA[METHOD PROTECTED  Operational : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bSwitchToWorking : BOOL := FALSE;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bSetStatusOn_RV492 := TRUE;
+
+bSetStatusOn_PU492 := TRUE;
+bSetStatusOn_PU592 := TRUE;
+
+IF PU492.bStatusOn AND PU592.bStatusOn THEN
+	bSwitchToWorking := TRUE;
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RampDown" Id="{98c69820-7eec-4581-8ad7-9cb3ce0e7fe7}">
+      <Declaration><![CDATA[METHOD PROTECTED  RampDown : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bRampDownFinished : BOOL := FALSE;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bSetStatusOn_PU492 := FALSE;
+bSetStatusOn_PU592 := FALSE;
+
+IF NOT PU492.bStatusOn AND NOT PU592.bStatusOn THEN
+	bSetStatusOn_RV492 := FALSE;
+	
+	bSetStatusOn_SV493 := FALSE;
+	bSetStatusOn_SV494 := FALSE;
+	
+	bSetStatusOn_SV490 := FALSE;
+	bSetStatusOn_SV491 := FALSE;
+	bStartTimer := TRUE;
+	IF Timer.Q THEN
+		bRampDownFinished := TRUE;
+		bStartTimer := FALSE;
+	END_IF
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RampUp" Id="{411cc7b2-389d-4380-abc3-3e2cabfdacab}">
+      <Declaration><![CDATA[METHOD PROTECTED  RampUp : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bRampUpFinished : BOOL := FALSE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bSetStatusOn_RV492 := TRUE;
+IF bHeatingMode THEN
+	bSetStatusOn_SV493 := TRUE;
+	bSetStatusOn_SV494 := TRUE;
+	
+	bSetStatusOn_SV490 := FALSE;
+	bSetStatusOn_SV491 := FALSE;
+	
+	nControlMode_RV492 := 1; //heating mode
+ELSE
+	bSetStatusOn_SV493 := FALSE;
+	bSetStatusOn_SV494 := FALSE;
+	
+	bSetStatusOn_SV490 := TRUE;
+	bSetStatusOn_SV491 := TRUE;
+	
+	nControlMode_RV492 := 2; //cooling mode
+END_IF
+
+bStartTimer := TRUE;
+IF Timer.Q THEN
+	bStartTimer := FALSE;
+	bRampUpFinished := TRUE;
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SelectLocalControlMode" Id="{8fac6820-e58b-4e4f-99c5-6891ee9aa29d}">
+      <Declaration><![CDATA[METHOD PRIVATE SelectLocalControlMode : BOOL
+VAR_INPUT
+END_VAR
+VAR
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF control.bManualModeActivated THEN
+	bHeatingMode := localSetParameters.bHeatingModeManual;
+	nControlMode := localSetParameters.nControlModeManual;
+	fHysteresisRange := localSetParameters.fHysteresisRangeManual;
+ELSIF control.bAlgorithmModeActivated AND bAlgorithmPermission THEN
+	bHeatingMode := localSetParameters.bHeatingModeAlgorithm;
+	nControlMode := localSetParameters.nControlModeAlgorithm;
+	fHysteresisRange := localSetParameters.fHysteresisRangeAlgorithm;
+ELSE
+	bHeatingMode := bHeatingModeAutomatic;
+	nControlMode := nControlModeAutomatic;
+	fHysteresisRange := fHysteresisRangeAutomatic;
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetSetPointLimits" Id="{30c5398d-8470-4e63-8efd-1cd3719fe5d4}">
+      <Declaration><![CDATA[METHOD PROTECTED   SetSetPointLimits : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[aSetPointLimits[1] := localDefaultParameters.aSetPointLimitsTemperature[1];
+aSetPointLimits[2] := localDefaultParameters.aSetPointLimitsTemperature[2];]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetState" Id="{6cd50e48-9dd0-4843-8469-ee12867e86a0}">
+      <Declaration><![CDATA[METHOD PROTECTED  SetState : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fOperatingPoint := stAmbientState.fRoomTemperature;
+
+controlState.bStatusOn := bSetStatusOn;
+setPointState.aSetPointLimits := aSetPointLimits;
+setPointState.fSetPoint := fSetPoint;
+setPointState.fOperatingPoint := fOperatingPoint;
+setPointState.sSetPointUnit := 'degreeC';
+setPointState.sOperatingPointUnit := 'degreeC';]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SwitchMode" Id="{ed6a0db7-3fd7-4864-836d-1027fa6e419b}">
+      <Declaration><![CDATA[METHOD PRIVATE SwitchMode : BOOL
+VAR_INPUT
+	bSwitchToHeating : BOOL; //if false switch to cooling
+END_VAR
+VAR_OUTPUT
+	bFinishedSwitchMode : BOOL;
+END_VAR
+VAR_INST
+	bRampDownFinished : BOOL := FALSE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF bSwitchToHeating THEN
+	//turn off pumps first		
+	bSetStatusOn_PU492 := FALSE;
+	bSetStatusOn_PU592 := FALSE;
+	
+	//SV can switch simultanously
+	bSetStatusOn_SV490 := FALSE;
+	bSetStatusOn_SV491 := FALSE;
+	
+	bSetStatusOn_SV493 := TRUE;
+	bSetStatusOn_SV494 := TRUE;
+	bFinishedSwitchMode := FALSE;
+	bStartTimer := TRUE;
+	IF Timer.Q THEN
+		bStartTimer := FALSE;
+		bRampDownFinished := TRUE;
+		bFinishedSwitchMode := TRUE;
+		bSetStatusOn_PU492 := TRUE;
+		bSetStatusOn_PU592 := TRUE;
+	END_IF
+ELSE
+	//turn off pumps first		
+	bSetStatusOn_PU492 := FALSE;
+	bSetStatusOn_PU592 := FALSE;
+
+	//SV can switch simultanously
+	bSetStatusOn_SV490 := TRUE;
+	bSetStatusOn_SV491 := TRUE;
+	
+	bSetStatusOn_SV493 := FALSE;
+	bSetStatusOn_SV494 := FALSE;
+	bFinishedSwitchMode := FALSE;
+	bStartTimer := TRUE;
+	IF Timer.Q THEN
+		bStartTimer := FALSE;
+		bRampDownFinished := TRUE;
+		bFinishedSwitchMode := TRUE;
+		bSetStatusOn_PU492 := TRUE;
+		bSetStatusOn_PU592 := TRUE;
+	END_IF
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Working" Id="{bdcf2d52-d317-4610-943c-8cc8389258b5}">
+      <Declaration><![CDATA[METHOD PROTECTED  Working : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bSwitchToOperational : BOOL := FALSE;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[LocalControl();
+
+IF ((SwitchToHeating.Q OR SwitchToCooling.Q) OR NOT bFinishedSwitchMode) THEN
+	
+	SwitchMode(bSwitchToHeating := bHeatingMode,
+		bFinishedSwitchMode => bFinishedSwitchMode);
+END_IF;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_ActiveWallModulesSystem">
+      <LineId Id="268" Count="0" />
+      <LineId Id="435" Count="0" />
+      <LineId Id="267" Count="0" />
+      <LineId Id="436" Count="0" />
+      <LineId Id="149" Count="1" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="213" Count="0" />
+      <LineId Id="212" Count="0" />
+      <LineId Id="214" Count="2" />
+      <LineId Id="351" Count="0" />
+      <LineId Id="350" Count="0" />
+      <LineId Id="217" Count="0" />
+      <LineId Id="219" Count="3" />
+      <LineId Id="354" Count="0" />
+      <LineId Id="353" Count="0" />
+      <LineId Id="218" Count="0" />
+      <LineId Id="224" Count="0" />
+      <LineId Id="223" Count="0" />
+      <LineId Id="225" Count="1" />
+      <LineId Id="349" Count="0" />
+      <LineId Id="355" Count="0" />
+      <LineId Id="227" Count="1" />
+      <LineId Id="231" Count="0" />
+      <LineId Id="233" Count="0" />
+      <LineId Id="232" Count="0" />
+      <LineId Id="234" Count="2" />
+      <LineId Id="238" Count="3" />
+      <LineId Id="237" Count="0" />
+      <LineId Id="243" Count="3" />
+      <LineId Id="242" Count="0" />
+      <LineId Id="248" Count="3" />
+      <LineId Id="247" Count="0" />
+      <LineId Id="255" Count="0" />
+      <LineId Id="253" Count="0" />
+      <LineId Id="256" Count="3" />
+      <LineId Id="262" Count="3" />
+      <LineId Id="261" Count="0" />
+      <LineId Id="260" Count="0" />
+      <LineId Id="252" Count="0" />
+      <LineId Id="254" Count="0" />
+      <LineId Id="515" Count="0" />
+      <LineId Id="229" Count="0" />
+      <LineId Id="152" Count="0" />
+      <LineId Id="151" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ActiveWallModulesSystem.CheckError">
+      <LineId Id="8" Count="0" />
+      <LineId Id="13" Count="1" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="15" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ActiveWallModulesSystem.LocalControl">
+      <LineId Id="47" Count="1" />
+      <LineId Id="45" Count="0" />
+      <LineId Id="103" Count="0" />
+      <LineId Id="53" Count="0" />
+      <LineId Id="51" Count="1" />
+      <LineId Id="151" Count="1" />
+      <LineId Id="206" Count="0" />
+      <LineId Id="153" Count="0" />
+      <LineId Id="207" Count="2" />
+      <LineId Id="171" Count="0" />
+      <LineId Id="173" Count="5" />
+      <LineId Id="172" Count="0" />
+      <LineId Id="179" Count="0" />
+      <LineId Id="181" Count="5" />
+      <LineId Id="180" Count="0" />
+      <LineId Id="104" Count="0" />
+      <LineId Id="199" Count="0" />
+      <LineId Id="117" Count="0" />
+      <LineId Id="201" Count="4" />
+      <LineId Id="189" Count="9" />
+      <LineId Id="187" Count="0" />
+      <LineId Id="123" Count="0" />
+      <LineId Id="118" Count="0" />
+      <LineId Id="63" Count="0" />
+      <LineId Id="86" Count="1" />
+      <LineId Id="89" Count="1" />
+      <LineId Id="88" Count="0" />
+      <LineId Id="210" Count="2" />
+      <LineId Id="55" Count="0" />
+      <LineId Id="49" Count="0" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ActiveWallModulesSystem.Operational">
+      <LineId Id="7" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="10" Count="0" />
+      <LineId Id="12" Count="2" />
+      <LineId Id="11" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ActiveWallModulesSystem.RampDown">
+      <LineId Id="17" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="19" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="22" Count="5" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="32" Count="0" />
+      <LineId Id="28" Count="1" />
+      <LineId Id="31" Count="0" />
+      <LineId Id="30" Count="0" />
+      <LineId Id="21" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ActiveWallModulesSystem.RampUp">
+      <LineId Id="10" Count="0" />
+      <LineId Id="29" Count="15" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="46" Count="4" />
+      <LineId Id="45" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ActiveWallModulesSystem.SelectLocalControlMode">
+      <LineId Id="6" Count="1" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="8" Count="1" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="17" Count="0" />
+      <LineId Id="10" Count="1" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ActiveWallModulesSystem.SetSetPointLimits">
+      <LineId Id="9" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ActiveWallModulesSystem.SetState">
+      <LineId Id="7" Count="0" />
+      <LineId Id="9" Count="5" />
+      <LineId Id="8" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ActiveWallModulesSystem.SwitchMode">
+      <LineId Id="13" Count="0" />
+      <LineId Id="68" Count="0" />
+      <LineId Id="70" Count="0" />
+      <LineId Id="69" Count="0" />
+      <LineId Id="71" Count="0" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="23" Count="2" />
+      <LineId Id="27" Count="6" />
+      <LineId Id="26" Count="0" />
+      <LineId Id="35" Count="0" />
+      <LineId Id="72" Count="1" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="75" Count="0" />
+      <LineId Id="74" Count="0" />
+      <LineId Id="39" Count="12" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="36" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ActiveWallModulesSystem.Working">
+      <LineId Id="13" Count="0" />
+      <LineId Id="16" Count="2" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="19" Count="0" />
+      <LineId Id="15" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

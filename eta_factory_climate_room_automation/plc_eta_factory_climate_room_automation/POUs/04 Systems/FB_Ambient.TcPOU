@@ -1,0 +1,155 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_Ambient" Id="{0f4d897f-37c6-49e7-b457-70281b1a7b2e}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Ambient
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	{attribute 'OPC.UA.DA' := '1'}
+	localState : ST_AmbientState;
+END_VAR
+VAR
+	//sensors
+	UpperRoomTemperature_SW : FB_TemperatureSensor; //south west
+	LowerRoomTemperature_SW : FB_TemperatureSensor;
+	UpperRoomTemperature_NW : FB_TemperatureSensor; //north west
+	LowerRoomTemperature_NW : FB_TemperatureSensor;
+	UpperRoomTemperature_NO : FB_TemperatureSensor;//north east
+	LowerRoomTemperature_NO : FB_TemperatureSensor;
+	UpperRoomTemperature_SO : FB_TemperatureSensor; //south east
+	LowerRoomTemperature_SO : FB_TemperatureSensor;
+	
+	OutsideTemperature_North : FB_TemperatureSensor;
+	OutsideTemperature_South : FB_TemperatureSensor;
+	OutsideTemperature_West : FB_TemperatureSensor;
+	
+	InletAHUTemperature : AutomationBaseClasses.FB_TemperatureSensor; //inlet temperature from climate room internal AHU (Air Handling Unit)
+	OutletAHUTemperature : AutomationBaseClasses.FB_TemperatureSensor; //outlet temperature from climate room internal AHU
+	
+	InletVentilationTemperature : AutomationBaseClasses.FB_TemperatureSensor; //inlet temperature from building ventilation
+	OutletVentilationTemperature : AutomationBaseClasses.FB_TemperatureSensor; //outlet temperature from building ventilation
+	
+	RoomHumidity : FB_HumiditySensor;
+	RoomCO2 : FB_CO2Sensor;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[UpperRoomTemperature_SW();
+UpperRoomTemperature_SW.GetState_AI();
+LowerRoomTemperature_SW();
+LowerRoomTemperature_SW.GetState_AI();
+UpperRoomTemperature_NW();
+UpperRoomTemperature_NW.GetState_AI();
+LowerRoomTemperature_NW();
+LowerRoomTemperature_NW.GetState_AI();
+UpperRoomTemperature_NO();
+UpperRoomTemperature_NO.GetState_AI();
+LowerRoomTemperature_NO();
+LowerRoomTemperature_NO.GetState_AI();
+UpperRoomTemperature_SO();
+UpperRoomTemperature_SO.GetState_AI();
+LowerRoomTemperature_SO();
+LowerRoomTemperature_SO.GetState_AI();
+
+OutsideTemperature_North();
+OutsideTemperature_North.GetState_AI();
+OutsideTemperature_South();
+OutsideTemperature_South.GetState_AI();
+OutsideTemperature_West();
+OutsideTemperature_West.GetState_AI();
+
+InletAHUTemperature();
+InletAHUTemperature.GetState_AI();
+OutletAHUTemperature();
+OutletAHUTemperature.GetState_AI();
+InletVentilationTemperature();
+InletVentilationTemperature.GetState_AI();
+OutletVentilationTemperature();
+OutletVentilationTemperature.GetState_AI();
+
+RoomHumidity();
+RoomHumidity.GetState_AI();
+
+RoomCO2();
+RoomCO2.GetState_AI();
+
+SetState();]]></ST>
+    </Implementation>
+    <Method Name="SetState" Id="{eda2988d-3dfb-4e58-a5fe-95deb2a32f09}">
+      <Declaration><![CDATA[METHOD PROTECTED SetState : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[localState.fRelativeHumidity := RoomHumidity.fHumidity;
+localState.fRoomCO2 := RoomCO2.fCO2;
+
+localState.fRoomTemperatureUpperNO := UpperRoomTemperature_NO.fTemperature;
+localState.fRoomTemperatureLowerNO := LowerRoomTemperature_NO.fTemperature;
+localState.fRoomTemperatureUpperSO := UpperRoomTemperature_SO.fTemperature;
+localState.fRoomTemperatureLowerSO := LowerRoomTemperature_SO.fTemperature;
+localState.fRoomTemperatureUpperSW := UpperRoomTemperature_SW.fTemperature;
+localState.fRoomTemperatureLowerSW := LowerRoomTemperature_SW.fTemperature;
+localState.fRoomTemperatureUpperNW := UpperRoomTemperature_NW.fTemperature;
+localState.fRoomTemperatureLowerNW := LowerRoomTemperature_NW.fTemperature;
+
+localState.fInletAHUTemperature := InletAHUTemperature.fTemperature;
+localState.fOutletAHUTemperature := OutletAHUTemperature.fTemperature;
+localState.fInletVentilationTemperature := InletVentilationTemperature.fTemperature;
+localState.fOutletVentilationTemperature := OutletVentilationTemperature.fTemperature;
+
+//room temperature is currently calclated as mean value from all room values
+localState.fRoomTemperature := (localState.fRoomTemperatureUpperNO+localState.fRoomTemperatureLowerNO+localState.fRoomTemperatureUpperSO+localState.fRoomTemperatureLowerSO+localState.fRoomTemperatureUpperSW+localState.fRoomTemperatureLowerSW+localState.fRoomTemperatureUpperNW+localState.fRoomTemperatureLowerNW)/8;
+
+localState.fOutsideTemperatureNorth := OutsideTemperature_North.fTemperature;
+localState.fOutsideTemperatureSouth := OutsideTemperature_South.fTemperature;
+localState.fOutsideTemperatureWest := OutsideTemperature_West.fTemperature;
+
+//outside temperature is currently calclated as mean value from all outside values
+localState.fOutsideTemperature := (localState.fOutsideTemperatureNorth+localState.fOutsideTemperatureSouth+localState.fOutsideTemperatureWest)/3;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_Ambient">
+      <LineId Id="29" Count="0" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="73" Count="0" />
+      <LineId Id="72" Count="0" />
+      <LineId Id="75" Count="2" />
+      <LineId Id="74" Count="0" />
+      <LineId Id="79" Count="2" />
+      <LineId Id="78" Count="0" />
+      <LineId Id="83" Count="2" />
+      <LineId Id="82" Count="0" />
+      <LineId Id="90" Count="0" />
+      <LineId Id="92" Count="0" />
+      <LineId Id="94" Count="0" />
+      <LineId Id="96" Count="0" />
+      <LineId Id="95" Count="0" />
+      <LineId Id="98" Count="0" />
+      <LineId Id="97" Count="0" />
+      <LineId Id="130" Count="2" />
+      <LineId Id="135" Count="0" />
+      <LineId Id="133" Count="0" />
+      <LineId Id="136" Count="3" />
+      <LineId Id="45" Count="0" />
+      <LineId Id="44" Count="0" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="48" Count="0" />
+      <LineId Id="47" Count="0" />
+      <LineId Id="49" Count="1" />
+      <LineId Id="40" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Ambient.SetState">
+      <LineId Id="7" Count="1" />
+      <LineId Id="10" Count="8" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="36" Count="0" />
+      <LineId Id="38" Count="2" />
+      <LineId Id="28" Count="2" />
+      <LineId Id="19" Count="3" />
+      <LineId Id="32" Count="0" />
+      <LineId Id="31" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

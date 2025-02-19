@@ -1,0 +1,138 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_PowerControlledHeaterThyristor" Id="{1501bede-193a-4fe1-a0ad-e0d67950964c}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_PowerControlledHeaterThyristor EXTENDS FB_ActuatorContinous
+VAR_INPUT
+	fPowerTotal : REAL;
+	fTemperature : REAL;
+END_VAR
+VAR
+	stTemperatureCheckDefaultParameters : ST_RangeCheckDefaultParameters := (tTaskCycleTime := GlobalVariables.tCtrlCycleTime_MAIN, tCtrlCycleTime := GlobalVariables.tCtrlCycleTime_MAIN, fRestoreDifference := 10);
+	Temperature_Check : FB_RangeCheck := (ST_DefaultParameters := stTemperatureCheckDefaultParameters);
+	
+	//controller
+	PID_Controller				: FB_CTRL_PID;
+	PID_Controller_Parameters	: ST_CTRL_PID_PARAMS;
+	
+	fSetPoint_internal 			: REAL; //internal setpoint between 0 and 32767
+	bTemperaturePermission		: BOOL;
+	
+	//I/O Links
+	nSetPoint_OUT 		AT %Q* : INT;	
+	
+END_VAR
+VAR_OUTPUT
+	bError 						: BOOL;
+	
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Temperature_Check(fInput := fTemperature,
+	fLowerLimit := -99,
+	fUpperLimit := 100);
+bTemperaturePermission := Temperature_Check.bPermission;
+	
+MAIN();
+LocalControl();]]></ST>
+    </Implementation>
+    <Method Name="GetState" Id="{8997a89f-b8c8-45e1-a232-72f1814e8bc2}">
+      <Declaration><![CDATA[METHOD GetState : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//local state
+bStatusOn := controlState.bStatusOn;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="LocalControl" Id="{190aaaaa-eb4b-4ed1-af2c-e7ad87e77bb5}">
+      <Declaration><![CDATA[METHOD LocalControl : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[PID_Controller_Parameters.fKp:=1.8;
+PID_Controller_Parameters.tTn:= T#1600MS;
+PID_Controller_Parameters.tTv:=T#4MS;
+PID_Controller_Parameters.fOutMaxLimit:= 32767;
+PID_Controller_Parameters.fOutMinLimit:=  0;
+PID_Controller_Parameters.tCtrlCycleTime:= T#5S;
+PID_Controller_Parameters.tTaskCycleTime:= T#10MS;
+PID_Controller_Parameters.bARWOnIPartOnly:= FALSE; 
+
+PID_Controller(fSetpointValue:=fSetPoint, 
+fActualValue:=fPowerTotal, 
+fManSyncValue:=0, 
+bSync:=FALSE, 
+eMode:=2, 
+bHold:=FALSE, 
+stParams:=PID_Controller_Parameters);
+
+//overwrite internal setpoint, if Temperatur is too high
+IF bSetStatusOn AND bTemperaturePermission THEN
+	fSetPoint_internal := LREAL_TO_REAL(PID_Controller.fOut);
+	bError := FALSE;
+ELSE
+	fSetPoint_internal := 0;
+	bError := TRUE;
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetSetPointLimits" Id="{2c43ad12-08cc-44af-8962-9730b1a2d0e8}">
+      <Declaration><![CDATA[METHOD PROTECTED  SetSetPointLimits : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[aSetPointLimits[1] := 0;
+aSetPointLimits[2] := 5000;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetState" Id="{f38d706b-6444-4227-a865-784d78405b17}">
+      <Declaration><![CDATA[METHOD SetState : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[setPointState.fSetPoint := fSetPoint_internal;
+setPointState.aSetPointLimits := aSetPointLimits;
+setPointState.sSetPointUnit := 'W';
+
+nSetPoint_OUT := REAL_TO_INT(fSetPoint_internal);]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_PowerControlledHeaterThyristor">
+      <LineId Id="255" Count="1" />
+      <LineId Id="253" Count="0" />
+      <LineId Id="257" Count="0" />
+      <LineId Id="254" Count="0" />
+      <LineId Id="240" Count="0" />
+      <LineId Id="247" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_PowerControlledHeaterThyristor.GetState">
+      <LineId Id="6" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_PowerControlledHeaterThyristor.LocalControl">
+      <LineId Id="6" Count="15" />
+      <LineId Id="31" Count="0" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="32" Count="0" />
+      <LineId Id="24" Count="1" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="26" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_PowerControlledHeaterThyristor.SetSetPointLimits">
+      <LineId Id="6" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_PowerControlledHeaterThyristor.SetState">
+      <LineId Id="10" Count="2" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="18" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

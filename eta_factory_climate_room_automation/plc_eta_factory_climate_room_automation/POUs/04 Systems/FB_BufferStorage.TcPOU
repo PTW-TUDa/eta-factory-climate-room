@@ -1,0 +1,57 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_BufferStorage" Id="{bf777c77-d307-4b47-89a9-81af89ea1321}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_BufferStorage
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	{attribute 'OPC.UA.DA' := '1'}
+	localState : ST_BufferStorageState;
+END_VAR
+VAR
+	//sensors
+	UpperBufferTemperature : AutomationBaseClasses.FB_TemperatureSensor;
+	LowerBufferTemperature : AutomationBaseClasses.FB_TemperatureSensor;
+	
+	WMZ198 : FB_MollineC3HeatCounter;
+	
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[UpperBufferTemperature();
+UpperBufferTemperature.GetState_AI();
+
+LowerBufferTemperature();
+LowerBufferTemperature.GetState_AI();
+
+WMZ198(aHeatCounterTelegramm := MBus.Telegramm_WMZ_198);
+
+SetState();]]></ST>
+    </Implementation>
+    <Method Name="SetState" Id="{b0e6a4ac-cf86-421f-bee7-f1494bba2b38}">
+      <Declaration><![CDATA[METHOD PROTECTED SetState : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[localState.fUpperTemperature := UpperBufferTemperature.fTemperature;
+localState.fLowerTemperature := LowerBufferTemperature.fTemperature;
+]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_BufferStorage">
+      <LineId Id="29" Count="0" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="203" Count="1" />
+      <LineId Id="202" Count="0" />
+      <LineId Id="49" Count="1" />
+      <LineId Id="220" Count="0" />
+      <LineId Id="40" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_BufferStorage.SetState">
+      <LineId Id="11" Count="0" />
+      <LineId Id="44" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

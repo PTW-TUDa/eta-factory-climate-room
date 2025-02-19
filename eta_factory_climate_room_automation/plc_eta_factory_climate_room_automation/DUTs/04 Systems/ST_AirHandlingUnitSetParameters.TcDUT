@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <DUT Name="ST_AirHandlingUnitSetParameters" Id="{5a023768-6c7f-4614-b690-b071e8b5df3c}">
+    <Declaration><![CDATA[{attribute 'OPC.UA.DA.StructuredType' := '1'}
+TYPE ST_AirHandlingUnitSetParameters :
+STRUCT
+	bHeatingModeAlgorithm : BOOL;
+	bHeatingModeManual : BOOL;
+	nControlModeAlgorithm : E_AirHandlingUnitControlMode;
+	nControlModeManual : E_AirHandlingUnitControlMode;
+	fHysteresisRangeAlgorithm : REAL;
+	fHysteresisRangeManual : REAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

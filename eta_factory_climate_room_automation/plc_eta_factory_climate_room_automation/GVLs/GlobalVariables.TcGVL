@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <GVL Name="GlobalVariables" Id="{8a6aab08-6efe-48c3-a056-92271920ea20}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+VAR_GLOBAL
+	//cycle times
+	tTaskCycleTime_MAIN				: TIME := T#10MS;
+	tCtrlCycleTime_MAIN				: TIME := T#5S;
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <DUT Name="ST_ActiveWallModulesSetParameters" Id="{10529f76-ffb1-4fa2-964c-d8ab4c4354c2}">
+    <Declaration><![CDATA[{attribute 'OPC.UA.DA.StructuredType' := '1'}
+TYPE ST_ActiveWallModulesSetParameters :
+STRUCT
+	bHeatingModeAlgorithm : BOOL;
+	bHeatingModeManual : BOOL;
+	nControlModeAlgorithm : E_ActiveWallModulesControlMode;
+	nControlModeManual : E_ActiveWallModulesControlMode;
+	fHysteresisRangeAlgorithm : REAL;
+	fHysteresisRangeManual : REAL; 
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

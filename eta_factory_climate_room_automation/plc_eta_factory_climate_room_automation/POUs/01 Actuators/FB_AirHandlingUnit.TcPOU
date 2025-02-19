@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_AirHandlingUnit" Id="{f28cf46e-457c-4e41-bf4b-0887fb928971}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_AirHandlingUnit EXTENDS FB_ActuatorContinous
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+
+	localDefaultParameters : ST_AirHandlingUnitDefaultParameters;
+	
+	//analog converters
+	OutputConverter : FB_AnalogOutput(fUpperLimit := 100, fLowerLimit := 0);
+	
+	//I/O Links
+	bSetStatusOn_OUT	AT %Q* : BOOL;
+	nSetPoint_OUT 		AT %Q* : INT;
+	
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[MAIN();
+OutputConverter(fValue := fSetPoint);
+
+]]></ST>
+    </Implementation>
+    <Method Name="GetState" Id="{db35ed20-518e-462b-86bf-ccce87aef9cc}">
+      <Declaration><![CDATA[METHOD GetState : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//local state
+bStatusOn := controlState.bStatusOn;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetSetPointLimits" Id="{0bc4e5ec-6ce0-4801-843a-b7c2ee2178da}">
+      <Declaration><![CDATA[METHOD PROTECTED  SetSetPointLimits : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[aSetPointLimits[1] := 0;
+aSetPointLimits[2] := 100;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetState" Id="{524711c4-60d0-4e9d-aff4-c7e748d9a2be}">
+      <Declaration><![CDATA[METHOD SetState : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[setPointState.fSetPoint := fSetPoint;
+setPointState.aSetPointLimits := aSetPointLimits;
+setPointState.sSetPointUnit := 'degreeC';
+
+nSetPoint_OUT := OutputConverter.nValue;  //converts real setpoint for terminal
+bSetStatusOn_OUT := NOT bSetStatusOn;		// must be inverted, because AHU is on, when do is 0]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_AirHandlingUnit">
+      <LineId Id="69" Count="0" />
+      <LineId Id="67" Count="1" />
+      <LineId Id="33" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AirHandlingUnit.GetState">
+      <LineId Id="6" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AirHandlingUnit.SetSetPointLimits">
+      <LineId Id="6" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AirHandlingUnit.SetState">
+      <LineId Id="6" Count="4" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_JanitzaSensor" Id="{8fa913e5-ea73-49cb-856e-4271c00e3919}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_JanitzaSensor EXTENDS FB_Sensor
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	fPower : REAL; //measured power in watt
+END_VAR
+VAR
+	//I/O-Links
+	power_IN AT %I* : REAL;
+	
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="GetState_AI" Id="{bfc089cb-51c5-4333-ac4c-1dfe775f2223}">
+      <Declaration><![CDATA[METHOD GetState_AI : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fPower := power_IN;
+
+//sensor state
+sensorState.fValue := fPower;
+sensorState.sUnit := 'Watt';]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_JanitzaSensor">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_JanitzaSensor.GetState_AI">
+      <LineId Id="13" Count="0" />
+      <LineId Id="10" Count="2" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

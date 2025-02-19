@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="MBus_Communication" Id="{662d8204-46f8-4586-b4ad-74436a0f8a1f}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM MBus_Communication
+VAR
+	Communication_Terminal	: FB_MBUSKL6781;
+	
+	WMZ_196					: FB_MBUS_General_Ext;
+	WMZ_193					: FB_MBUS_General_Ext;
+	WMZ_491					: FB_MBUS_General_Ext;
+	WMZ_493					: FB_MBUS_General_Ext;
+	WMZ_393					: FB_MBUS_General_Ext;
+	WMZ_198					: FB_MBUS_General_Ext;
+	WMZ_246					: FB_MBUS_General_Ext;
+	WMZ_247					: FB_MBUS_General_Ext;
+	WMZ_592					: FB_MBUS_General_Ext;
+	
+	//define secondary addresses
+	adrWMZ_196			: ST_MBUS_SecAdr := (udiIdNumber:=16#91453216);
+	adrWMZ_193			: ST_MBUS_SecAdr := (udiIdNumber:=16#91057344);
+	adrWMZ_491			: ST_MBUS_SecAdr := (udiIdNumber:=16#91057337);
+	adrWMZ_493			: ST_MBUS_SecAdr := (udiIdNumber:=16#85052762);
+	adrWMZ_393			: ST_MBUS_SecAdr := (udiIdNumber:=16#93556978);
+	adrWMZ_198			: ST_MBUS_SecAdr := (udiIdNumber:=16#72888375);
+	adrWMZ_246			: ST_MBUS_SecAdr := (udiIdNumber:=16#72888412);
+	adrWMZ_247			: ST_MBUS_SecAdr := (udiIdNumber:=16#72888417);
+	adrWMZ_592			: ST_MBUS_SecAdr := (udiIdNumber:=16#30356999);
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Communication_Terminal(stComIn := MBus.IN_Zaehler, stComOut := MBus.OUT_Zaehler, stCom := MBus.Communication_MBus);
+
+WMZ_196(usiAddress := 253, stSecAdr := adrWMZ_196, stCom := MBus.Communication_MBus, arrTelegram => MBus.Telegramm_WMZ_196);
+WMZ_193(usiAddress := 253, stSecAdr := adrWMZ_193, stCom := MBus.Communication_MBus, arrTelegram => MBus.Telegramm_WMZ_193);
+WMZ_198(usiAddress := 253, stSecAdr := adrWMZ_198, stCom := MBus.Communication_MBus, arrTelegram => MBus.Telegramm_WMZ_198);
+
+WMZ_246(usiAddress := 253, stSecAdr := adrWMZ_246, stCom := MBus.Communication_MBus, arrTelegram => MBus.Telegramm_WMZ_246);
+WMZ_247(usiAddress := 253, stSecAdr := adrWMZ_247, stCom := MBus.Communication_MBus, arrTelegram => MBus.Telegramm_WMZ_247);
+
+WMZ_393(usiAddress := 253, stSecAdr := adrWMZ_393, stCom := MBus.Communication_MBus, arrTelegram => MBus.Telegramm_WMZ_393);
+
+WMZ_491(usiAddress := 253, stSecAdr := adrWMZ_491, stCom := MBus.Communication_MBus, arrTelegram => MBus.Telegramm_WMZ_491);
+WMZ_493(usiAddress := 253, stSecAdr := adrWMZ_493, stCom := MBus.Communication_MBus, arrTelegram => MBus.Telegramm_WMZ_493);
+
+WMZ_592(usiAddress := 253, stSecAdr := adrWMZ_592, stCom := MBus.Communication_MBus, arrTelegram => MBus.Telegramm_WMZ_592);
+
+
+	]]></ST>
+    </Implementation>
+    <LineIds Name="MBus_Communication">
+      <LineId Id="42" Count="0" />
+      <LineId Id="45" Count="0" />
+      <LineId Id="44" Count="0" />
+      <LineId Id="48" Count="0" />
+      <LineId Id="60" Count="0" />
+      <LineId Id="57" Count="0" />
+      <LineId Id="63" Count="0" />
+      <LineId Id="61" Count="0" />
+      <LineId Id="64" Count="1" />
+      <LineId Id="62" Count="0" />
+      <LineId Id="49" Count="1" />
+      <LineId Id="54" Count="1" />
+      <LineId Id="47" Count="0" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="40" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

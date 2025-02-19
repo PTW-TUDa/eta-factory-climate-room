@@ -1,0 +1,264 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_PowerControlledHeaterSystem" Id="{ccf887cd-0c86-4520-a11a-4c984e888ec0}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_PowerControlledHeaterSystem EXTENDS FB_SystemContinous
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	
+	localDefaultParameters : ST_PowerControlledHeaterDefaultParameters;
+	{attribute 'OPC.UA.DA' := '1'}	
+	localState : ST_PowerControlledHeaterState;
+	
+	//system components
+	fan 			: FB_PowerControlledHeaterFan;
+	contactor1 		: FB_PowerControlledHeaterContactor;
+	contactor2 		: FB_PowerControlledHeaterContactor;
+	thyristor1 		: FB_PowerControlledHeaterThyristor;
+	thyristor2 		: FB_PowerControlledHeaterThyristor;
+
+	//internal variables
+	bSetStatusOn_fan : BOOL;
+	bSetStatusOn_contactors : BOOL;
+	bSetStatusOn_thyristors : BOOL;
+	
+	fPowerTotal : REAL;
+	fTemperatureMax : REAL;
+
+	//sensors
+	THeater1 : FB_TemperatureSensorPCH;
+	THeater2 : FB_TemperatureSensorPCH;
+	THeater3 : FB_TemperatureSensorPCH;
+	THeater4 : FB_TemperatureSensorPCH;
+
+	PowerPhase1 : FB_JanitzaSensor;
+	PowerPhase2 : FB_JanitzaSensor;
+	PowerPhase3 : FB_JanitzaSensor;
+	
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[MAIN();
+
+fan(bSetStatusOnAutomatic := bSetStatusOn_fan,
+	bAlgorithmPermission := bAlgorithmPermission);
+fan.SetState_BO();
+
+contactor1(bSetStatusOnAutomatic := bSetStatusOn_contactors,
+	bAlgorithmPermission := bAlgorithmPermission);
+contactor1.SetState_BO();
+
+contactor2(bSetStatusOnAutomatic := bSetStatusOn_contactors,
+	bAlgorithmPermission := bAlgorithmPermission);
+contactor2.SetState_BO();	
+
+//sensors
+THeater1();
+THeater1.GetState_AI();
+THeater2();
+THeater2.GetState_AI();
+THeater3();
+THeater3.GetState_AI();
+THeater4();
+THeater4.GetState_AI();
+
+PowerPhase1();
+PowerPhase1.GetState_AI();
+PowerPhase2();
+PowerPhase2.GetState_AI();
+PowerPhase3();
+PowerPhase3.GetState_AI();
+
+fPowerTotal := PowerPhase1.fPower + PowerPhase2.fPower + PowerPhase3.fPower; //calculate total power
+fTemperatureMax := MAX(THeater1.fTemperature, THeater2.fTemperature, THeater3.fTemperature, THeater4.fTemperature); //find max temperatur for temperature permission
+
+thyristor1(bSetStatusOnAutomatic := bSetStatusOn_thyristors,
+	bAlgorithmPermission := bAlgorithmPermission,
+	fSetPointAutomatic := fSetPoint,
+	fPowerTotal := fPowerTotal,
+	fTemperature := fTemperatureMax);
+thyristor1.SetState();
+	
+thyristor2(bSetStatusOnAutomatic := bSetStatusOn_thyristors,
+	bAlgorithmPermission := bAlgorithmPermission,
+	fSetPointAutomatic := fSetPoint,
+	fPowerTotal := fPowerTotal,
+	fTemperature := fTemperatureMax);	
+thyristor2.SetState();
+	]]></ST>
+    </Implementation>
+    <Method Name="CheckError" Id="{d4a9a19f-a554-45e3-9c4d-e338a7186b49}">
+      <Declaration><![CDATA[METHOD PROTECTED  CheckError : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bError : BOOL;
+END_VAR
+VAR
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//check for temperature permission of thyristors
+bError := thyristor1.bError OR thyristor2.bError;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Operational" Id="{63ed273e-ef21-48fb-a371-6bd2edd73d35}">
+      <Declaration><![CDATA[METHOD PROTECTED  Operational : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bSwitchToWorking : BOOL := FALSE;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bSetStatusOn_thyristors := TRUE;
+bSwitchToWorking := TRUE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RampDown" Id="{eb4953a4-7773-492c-8fe8-4c549d821ae9}">
+      <Declaration><![CDATA[METHOD PROTECTED  RampDown : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bRampDownFinished : BOOL := FALSE;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bSetStatusOn_fan := FALSE;
+bSetStatusOn_thyristors := FALSE;
+
+//prevent switching contactors if total power is too high
+IF fPowerTotal < 50 THEN
+	bSetStatusOn_contactors := FALSE;
+	bRampDownFinished := TRUE;
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RampUp" Id="{70fb2d7f-910a-470a-8c65-56cd3ae4a267}">
+      <Declaration><![CDATA[METHOD PROTECTED  RampUp : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bRampUpFinished : BOOL := FALSE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bSetStatusOn_fan := TRUE;
+bSetStatusOn_contactors := TRUE;
+
+bRampUpFinished := TRUE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetSetPointLimits" Id="{60aab3dc-c5d0-4b37-b341-373e5d1079de}">
+      <Declaration><![CDATA[METHOD PROTECTED   SetSetPointLimits : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[aSetPointLimits[1] := 0;
+aSetPointLimits[2] := 5000;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetState" Id="{bb27b121-5463-4a3a-b925-b37b53338531}">
+      <Declaration><![CDATA[METHOD PROTECTED  SetState : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[controlState.bStatusOn := bSetStatusOn;
+setPointState.aSetPointLimits := aSetPointLimits;
+setPointState.fSetPoint := fSetPoint;
+setPointState.fOperatingPoint := fPowerTotal;
+setPointState.sSetPointUnit := 'W';
+setPointState.sOperatingPointUnit := 'W';
+localState.fPowerTotal := fPowerTotal;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Working" Id="{a1e333e9-a18e-4a36-ba69-9fdfdd9f414c}">
+      <Declaration><![CDATA[METHOD PROTECTED  Working : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bSwitchToOperational : BOOL := FALSE;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//empty]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_PowerControlledHeaterSystem">
+      <LineId Id="36" Count="0" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="51" Count="0" />
+      <LineId Id="53" Count="1" />
+      <LineId Id="140" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="55" Count="1" />
+      <LineId Id="142" Count="0" />
+      <LineId Id="57" Count="2" />
+      <LineId Id="41" Count="2" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="45" Count="0" />
+      <LineId Id="44" Count="0" />
+      <LineId Id="47" Count="0" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="49" Count="0" />
+      <LineId Id="48" Count="0" />
+      <LineId Id="76" Count="0" />
+      <LineId Id="75" Count="0" />
+      <LineId Id="77" Count="0" />
+      <LineId Id="79" Count="0" />
+      <LineId Id="78" Count="0" />
+      <LineId Id="81" Count="0" />
+      <LineId Id="80" Count="0" />
+      <LineId Id="85" Count="0" />
+      <LineId Id="84" Count="0" />
+      <LineId Id="88" Count="0" />
+      <LineId Id="91" Count="3" />
+      <LineId Id="102" Count="0" />
+      <LineId Id="101" Count="0" />
+      <LineId Id="95" Count="4" />
+      <LineId Id="104" Count="0" />
+      <LineId Id="103" Count="0" />
+      <LineId Id="90" Count="0" />
+      <LineId Id="89" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_PowerControlledHeaterSystem.CheckError">
+      <LineId Id="26" Count="0" />
+      <LineId Id="35" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_PowerControlledHeaterSystem.Operational">
+      <LineId Id="30" Count="1" />
+    </LineIds>
+    <LineIds Name="FB_PowerControlledHeaterSystem.RampDown">
+      <LineId Id="21" Count="0" />
+      <LineId Id="56" Count="0" />
+      <LineId Id="62" Count="0" />
+      <LineId Id="47" Count="0" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="51" Count="1" />
+      <LineId Id="49" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_PowerControlledHeaterSystem.RampUp">
+      <LineId Id="99" Count="0" />
+      <LineId Id="112" Count="0" />
+      <LineId Id="115" Count="0" />
+      <LineId Id="102" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_PowerControlledHeaterSystem.SetSetPointLimits">
+      <LineId Id="9" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_PowerControlledHeaterSystem.SetState">
+      <LineId Id="10" Count="4" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="20" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_PowerControlledHeaterSystem.Working">
+      <LineId Id="7" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

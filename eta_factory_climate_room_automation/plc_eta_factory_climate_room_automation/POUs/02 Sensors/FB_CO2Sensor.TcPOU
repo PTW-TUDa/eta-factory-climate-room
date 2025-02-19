@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_CO2Sensor" Id="{9b2af059-ccf9-478f-90e7-23670ad7fb61}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_CO2Sensor EXTENDS FB_Sensor
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	fCO2 : REAL; //measured CO2 concentration in ppm
+END_VAR
+VAR
+	//I/O-Links
+	CO2_IN AT %I* : INT;
+	
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="GetState_AI" Id="{78bf2fd8-ac8b-4387-abaf-cc066038b9e9}">
+      <Declaration><![CDATA[METHOD GetState_AI : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fCO2 :=  (CO2_IN / 32767.0)*2000; //conversion
+
+//sensor state
+sensorState.fValue := fCO2;
+sensorState.sUnit := 'ppm';]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_CO2Sensor">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CO2Sensor.GetState_AI">
+      <LineId Id="7" Count="3" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

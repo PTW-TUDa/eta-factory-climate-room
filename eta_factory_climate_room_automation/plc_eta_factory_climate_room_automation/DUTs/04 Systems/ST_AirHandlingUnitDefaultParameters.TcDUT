@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <DUT Name="ST_AirHandlingUnitDefaultParameters" Id="{408e9833-527d-407c-b18a-2bbfbf68654e}">
+    <Declaration><![CDATA[TYPE ST_AirHandlingUnitDefaultParameters :
+STRUCT
+	aSetPointLimitsTemperature : ARRAY[1..2] OF REAL := [5,100];
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

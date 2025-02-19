@@ -1,0 +1,79 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="MAIN" Id="{9962e183-3753-4780-b1ab-bc2415940cfb}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM MAIN
+VAR
+	stRoomCheckDefaultParameters : ST_RangeCheckDefaultParameters := (tTaskCycleTime := GlobalVariables.tCtrlCycleTime_MAIN, tCtrlCycleTime := GlobalVariables.tCtrlCycleTime_MAIN, fRestoreDifference := 4);
+	Room_Check : FB_RangeCheck := (ST_DefaultParameters := stRoomCheckDefaultParameters);
+	
+	Ambient : FB_Ambient;
+	BufferStorage : FB_BufferStorage;
+	ActiveWallModules : FB_ActiveWallModulesSystem;
+	AirHandlingUnit : FB_AirHandlingUnitSystem;
+	CN : FB_CNSystem;
+	HNLT: FB_HNLTSystem;
+	
+	PCH : FB_PowerControlledHeaterSystem;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Ambient();
+BufferStorage();
+
+//set algorithm permission depending on production mode to control structs
+Room_Check(fInput := Ambient.localState.fRoomTemperature,
+	fLowerLimit := 5,
+	fUpperLimit := 30);
+
+ActiveWallModules(bSetStatusOnAutomatic := FALSE,
+	fSetPointAutomatic := 0,
+	bAlgorithmPermission := Room_Check.bPermission,
+	bHeatingModeAutomatic := FALSE,
+	fHysteresisRangeAutomatic := 3,
+	stAmbientState := Ambient.localState);
+	
+AirHandlingUnit(bSetStatusOnAutomatic := FALSE,
+	fSetPointAutomatic := 0,
+	bAlgorithmPermission := Room_Check.bPermission,
+	bHeatingModeAutomatic := FALSE,
+	fHysteresisRangeAutomatic := 3,
+	stAmbientState := Ambient.localState);
+	
+CN(bSetStatusOnAutomatic := FALSE,
+	fSetPointAutomatic := 0,
+	bAlgorithmPermission := Room_Check.bPermission);
+
+HNLT();	
+	
+PCH(bSetStatusOnAutomatic := FALSE,
+	bAlgorithmPermission := Room_Check.bPermission,
+	fSetPointAutomatic := 0);
+	
+	]]></ST>
+    </Implementation>
+    <LineIds Name="MAIN">
+      <LineId Id="38" Count="0" />
+      <LineId Id="63" Count="0" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="34" Count="3" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="2" Count="0" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="16" Count="1" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="26" Count="0" />
+      <LineId Id="50" Count="0" />
+      <LineId Id="52" Count="4" />
+      <LineId Id="51" Count="0" />
+      <LineId Id="57" Count="1" />
+      <LineId Id="60" Count="1" />
+      <LineId Id="100" Count="0" />
+      <LineId Id="62" Count="0" />
+      <LineId Id="99" Count="0" />
+      <LineId Id="67" Count="0" />
+      <LineId Id="81" Count="1" />
+      <LineId Id="84" Count="0" />
+      <LineId Id="83" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

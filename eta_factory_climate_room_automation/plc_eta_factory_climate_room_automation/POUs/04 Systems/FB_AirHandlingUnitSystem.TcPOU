@@ -1,0 +1,594 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_AirHandlingUnitSystem" Id="{d6a1e351-c935-4f6d-8fd9-beed203c7564}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_AirHandlingUnitSystem EXTENDS FB_SystemContinous
+VAR_INPUT
+	nControlModeAutomatic : E_AirHandlingUnitControlMode;
+	bHeatingModeAutomatic : BOOL; //control mode: 0 = heating mode; 1 = cooling mode
+	fHysteresisRangeAutomatic : REAL; //default unequalt to zero	
+	stAmbientState : ST_AmbientState;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	{attribute 'OPC.UA.DA' := '1'}
+ 	localSetParameters : ST_AirHandlingUnitSetParameters;
+	
+	localDefaultParameters : ST_AirHandlingUnitDefaultParameters;
+	
+	//AHU
+	AHU : FB_AirHandlingUnit;
+	
+	//pumps
+	stPU193DefaultParameters : ST_PumpGrundfosMagna3DefaultParameters;
+	stPU393DefaultParameters : ST_PumpGrundfosMagna3DefaultParameters;
+	PU193 : FB_PumpGrundfosMagna3 := (ST_DefaultParameters := stPU193DefaultParameters);
+	PU393 : FB_PumpGrundfosMagna3 := (ST_DefaultParameters := stPU393DefaultParameters);
+
+	//valves
+	stRV193DefaultParameters : ST_MixingValveDefaultParameters := (bFeedbackSignal := FALSE, fControllerAmplification := 5, tControllerIntegralTime := T#100M, bARWOnIPartOnly := FALSE, tTaskCycleTime := GlobalVariables.tTaskCycleTime_MAIN, tCtrlCycleTime := GlobalVariables.tCtrlCycleTime_MAIN);
+	stRV393DefaultParameters : ST_MixingValveDefaultParameters := (bFeedbackSignal := FALSE, fControllerAmplification := 5, tControllerIntegralTime := T#100M, bARWOnIPartOnly := FALSE, tTaskCycleTime := GlobalVariables.tTaskCycleTime_MAIN, tCtrlCycleTime := GlobalVariables.tCtrlCycleTime_MAIN);
+	
+	RV193 : FB_MixingValve := (ST_DefaultParameters := stRV193DefaultParameters);
+	RV393 : FB_MixingValve := (ST_DefaultParameters := stRV393DefaultParameters);	
+	
+	//sensors
+	TVL193 : AutomationBaseClasses.FB_TemperatureSensor; //supply temperature cooling
+	TRL193 : AutomationBaseClasses.FB_TemperatureSensor; //return temperature cooling
+	TVL393 : AutomationBaseClasses.FB_TemperatureSensor; //supply temperature heating
+	TRL393 : AutomationBaseClasses.FB_TemperatureSensor; //return temperature heating
+	
+	WMZ193 : FB_MollineC3HeatCounter; //cooling network
+	WMZ393 : FB_MollineC3HeatCounter; //heating network
+	
+	//internal variables
+	bHeatingMode 			: BOOL;
+
+	bSetStatusOn_AHU		: BOOL;
+	bSetStatusOn_PU193 		: BOOL;
+	bSetStatusOn_PU393 		: BOOL;
+	bSetStatusOn_RV193		: BOOL;
+	bSetStatusOn_RV393		: BOOL;
+	
+	//local control	
+	nControlMode			: E_AirHandlingUnitControlMode;
+	
+	nControlMode_RV193 		: E_MixingValveControlMode;	
+	nControlMode_RV393 		: E_MixingValveControlMode;
+	nControlMode_PU193		: AutomationBaseClasses.E_GrundfosMagna3ControlMode;
+	nControlMode_PU393		: AutomationBaseClasses.E_GrundfosMagna3ControlMode;
+	fSetPoint_RV193 		: REAL;
+	fSetPoint_RV393 		: REAL;
+	fHysteresisRange		: REAL;
+	
+	TwoPointControllerHeating		: FB_CTRL_2POINT;
+	TwoPointControllerCooling		: FB_CTRL_2POINT;
+	TwoPointControllerParameters 	: ST_CTRL_2POINT_PARAMS;
+	
+	//triggers
+	SwitchToHeating : R_TRIG;
+	SwitchToCooling : F_TRIG;
+	bFinishedSwitchMode : BOOL := TRUE;
+	
+	//clock
+	bStartTimer : BOOL;
+	Timer : TON;
+
+	
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[SelectLocalControlMode();
+SwitchToHeating(CLK := bHeatingMode);
+SwitchToCooling(CLK := bHeatingMode);
+
+Timer(IN := bStartTimer,
+	PT := T#120S);
+MAIN();
+
+AHU.GetState();
+AHU(fSetPointAutomatic :=  100,
+	bSetStatusOnAutomatic := bSetStatusOn_AHU,
+	bAlgorithmPermission := bAlgorithmPermission);
+AHU.SetState();
+
+//pumps
+PU193.GetState_Profibus();
+PU193(bSetStatusOnAutomatic := bSetStatusOn_PU193,
+	bAlgorithmPermission := bAlgorithmPermission,
+	fSetPointAutomatic := 100,
+	nControlModeAutomatic := nControlMode_PU193);
+PU193.SetState_Profibus();
+
+PU393.GetState_Profibus();
+PU393(bSetStatusOnAutomatic := bSetStatusOn_PU393,
+	bAlgorithmPermission := bAlgorithmPermission,
+	fSetPointAutomatic := 100,
+	nControlModeAutomatic := nControlMode_PU393);
+PU393.SetState_Profibus();
+
+
+//valves
+RV193.GetState_AI();
+RV193(bSetStatusOnAutomatic := bSetStatusOn_RV193,
+	fSetPointAutomatic := fSetPoint_RV193,
+	nControlModeAutomatic := nControlMode_RV193,
+	bAlgorithmPermission := bAlgorithmPermission,
+	fTemperatureExternal := stAmbientState.fRoomTemperature);
+RV193.SetState_AO();
+
+RV393.GetState_AI();
+RV393(bSetStatusOnAutomatic := bSetStatusOn_RV393,
+	fSetPointAutomatic := fSetPoint_RV393,
+	nControlModeAutomatic := nControlMode_RV393,
+	bAlgorithmPermission := bAlgorithmPermission,
+	fTemperatureExternal := stAmbientState.fRoomTemperature);
+RV393.SetState_AO();
+
+//sensors
+TVL193();
+TVL193.GetState_AI();
+TRL193();
+TRL193.GetState_AI();
+
+TVL393();
+TVL393.GetState_AI();
+TRL393();
+TRL393.GetState_AI();
+
+WMZ193(aHeatCounterTelegramm := MBus.Telegramm_WMZ_193);
+WMZ393(aHeatCounterTelegramm := MBus.Telegramm_WMZ_393);]]></ST>
+    </Implementation>
+    <Method Name="CheckError" Id="{3bdbb890-7c98-47c0-8f38-8e04faa54b49}">
+      <Declaration><![CDATA[METHOD PROTECTED  CheckError : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bError : BOOL;
+END_VAR
+VAR
+	bError_PU193 : BOOL;
+	bError_PU393 : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//check pumps for errors
+bError_PU193 := PU193.bError;
+bError_PU393 := PU393.bError;
+
+bError := bError_PU193 OR bError_PU393;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="LocalControl" Id="{b8b37d08-292b-41be-8278-5e74da74765f}">
+      <Declaration><![CDATA[METHOD PRIVATE LocalControl : BOOL
+VAR_INPUT
+END_VAR
+
+VAR
+	TwoPointControllerOutput : BOOL;
+	fSetpointValue: INT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE nControlMode OF
+	0: //100%
+	nControlMode_RV193 := 0;	//position mode
+	fSetPoint_RV193 := 100; 	//100 is fully opened
+	
+	nControlMode_RV393 := 0;	//position mode
+	fSetPoint_RV393 := 100; 	//100 is fully opened
+	
+	nControlMode_PU193 := 0;
+	//fSetPoint_PU393 := 100;
+	
+	bSetStatusOn_AHU := TRUE;
+	//fSetPoint_AHU := 100;
+	
+	1: //Hysteresis
+	nControlMode_RV193 := 0;	//position mode
+	nControlMode_RV393 := 0;	//position mode
+	nControlMode_PU193 := 0;
+	nControlMode_PU393 := 0;
+	//fSetPoint_PU393 := 100;
+	//fSetPoint_PU193 := 100;
+	//fSetPoint_AHU := 100;
+	
+	TwoPointControllerParameters.tCtrlCycleTime := T#1S;
+	TwoPointControllerParameters.tTaskCycleTime := T#10MS;
+	IF fHysteresisRange < 1 THEN
+		TwoPointControllerParameters.fHysteresisRange := 1;
+	ELSE
+		TwoPointControllerParameters.fHysteresisRange := fHysteresisRange;
+	END_IF;
+	
+	TwoPointControllerHeating(
+			fSetpointValue := fSetPoint,
+			fActualValue := stAmbientState.fRoomTemperature,
+			bManSyncValue := 0,
+			bSync := FALSE,
+			emode := 2,
+			stParams := TwoPointControllerParameters);
+			
+	TwoPointControllerCooling(
+			fSetpointValue := stAmbientState.fRoomTemperature,
+			fActualValue := fSetPoint,
+			bManSyncValue := 0,
+			bSync := FALSE,
+			emode := 2,
+			stParams := TwoPointControllerParameters);
+
+	
+	IF bHeatingMode THEN
+		IF TwoPointControllerHeating.bOut THEN
+			fSetPoint_RV393 := 100; 	//100 is fully opened
+			bSetStatusOn_PU393 := TRUE;
+			bSetStatusOn_AHU := TRUE;
+		ELSE
+			fSetPoint_RV393 := 0; 	//100 is fully opened
+			bSetStatusOn_PU393 := FALSE;
+			bSetStatusOn_AHU := FALSE;
+		END_IF
+	ELSE //cooling mode
+		IF TwoPointControllerCooling.bOut THEN
+			fSetPoint_RV193 := 100; 	//100 is fully opened
+			bSetStatusOn_PU193 := TRUE;
+			bSetStatusOn_AHU := TRUE;
+		ELSE
+			fSetPoint_RV193 := 0; 	//100 is fully opened
+			bSetStatusOn_PU193 := FALSE;
+			bSetStatusOn_AHU := FALSE;
+		END_IF
+	END_IF	
+	
+			
+	2: //Continous with PI-Controller
+	bSetStatusOn_AHU := TRUE;
+	
+	nControlMode_PU193 := 0;
+	nControlMode_PU393 := 0;
+		
+	IF bHeatingMode THEN
+		nControlMode_RV393 := 1;	//heating mode
+		fSetPoint_RV393 := fSetPoint;
+		
+		bSetStatusOn_PU393 := TRUE;
+		bSetStatusOn_PU193 := FALSE;
+		
+		nControlMode_RV193 := 0;	//turn off other valve
+		fSetPoint_RV193 := 0;
+	ELSE
+		nControlMode_RV193 := 2;	//cooling mode
+		fSetPoint_RV193 := fSetPoint;
+		
+		bSetStatusOn_PU193 := TRUE;
+		bSetStatusOn_PU393 := FALSE;
+		
+		nControlMode_RV393 := 0;	//turn off other valve
+		fSetPoint_RV393 := 0;
+	END_IF		
+
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Operational" Id="{b48cd7eb-2b19-4985-b959-993177e7bacf}">
+      <Declaration><![CDATA[METHOD PROTECTED  Operational : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bSwitchToWorking : BOOL := FALSE;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF PU193.bStatusOn OR PU393.bStatusOn THEN
+	bSetStatusOn_AHU := TRUE;	
+	bSwitchToWorking := TRUE;
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RampDown" Id="{ff242b74-2abf-4cf9-9410-ca25fb30804a}">
+      <Declaration><![CDATA[METHOD PROTECTED  RampDown : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bRampDownFinished : BOOL := FALSE;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[bSetStatusOn_PU193 := FALSE;
+bSetStatusOn_PU393 := FALSE;
+
+bSetStatusOn_AHU := FALSE;
+
+IF NOT PU193.bStatusOn AND NOT PU393.bStatusOn THEN
+	bSetStatusOn_RV193 := FALSE;
+	bSetStatusOn_RV393 := FALSE;
+	
+	bStartTimer := TRUE;
+	IF Timer.Q THEN
+		bRampDownFinished := TRUE;
+		bStartTimer := FALSE;
+	END_IF
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RampUp" Id="{195a2b60-b987-4ddc-a33d-083c191124a5}">
+      <Declaration><![CDATA[METHOD PROTECTED  RampUp : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bRampUpFinished : BOOL := FALSE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF bHeatingMode THEN
+	bSetStatusOn_RV393 := TRUE;
+	bSetStatusOn_PU393 := TRUE;
+	
+	bSetStatusOn_RV193 := FALSE;
+	bSetStatusOn_PU193 := FALSE;
+
+ELSE
+	bSetStatusOn_RV393 := FALSE;
+	bSetStatusOn_PU393 := FALSE;
+	
+	bSetStatusOn_RV193 := TRUE;
+	bSetStatusOn_PU193 := TRUE;
+	
+END_IF
+
+bRampUpFinished := TRUE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SelectLocalControlMode" Id="{640fd70d-7ad4-40bb-8dbb-14d0a1a5b9b8}">
+      <Declaration><![CDATA[METHOD PRIVATE SelectLocalControlMode : BOOL
+VAR_INPUT
+END_VAR
+VAR
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF control.bManualModeActivated THEN
+	bHeatingMode := localSetParameters.bHeatingModeManual;
+	nControlMode := localSetParameters.nControlModeManual;
+	fHysteresisRange := localSetParameters.fHysteresisRangeManual;
+ELSIF control.bAlgorithmModeActivated AND bAlgorithmPermission THEN
+	bHeatingMode := localSetParameters.bHeatingModeAlgorithm;
+	nControlMode := localSetParameters.nControlModeAlgorithm;
+	fHysteresisRange := localSetParameters.fHysteresisRangeAlgorithm;
+ELSE
+	bHeatingMode := bHeatingModeAutomatic;
+	nControlMode := nControlModeAutomatic;
+	fHysteresisRange := fHysteresisRangeAutomatic;
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetSetPointLimits" Id="{738a6ee1-e20f-4740-95d8-31e07af18d92}">
+      <Declaration><![CDATA[METHOD PROTECTED   SetSetPointLimits : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[aSetPointLimits[1] := localDefaultParameters.aSetPointLimitsTemperature[1];
+aSetPointLimits[2] := localDefaultParameters.aSetPointLimitsTemperature[2];]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetState" Id="{a2141d79-b204-4a3d-b622-ee81f7425d8d}">
+      <Declaration><![CDATA[METHOD PROTECTED  SetState : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fOperatingPoint := stAmbientState.fRoomTemperature;
+
+controlState.bStatusOn := bSetStatusOn;
+setPointState.aSetPointLimits := aSetPointLimits;
+setPointState.fSetPoint := fSetPoint;
+setPointState.fOperatingPoint := fOperatingPoint;
+setPointState.sSetPointUnit := 'degreeC';
+setPointState.sOperatingPointUnit := 'degreeC';]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SwitchMode" Id="{538af4ed-4257-4f7d-a45d-b04c8ae35fcc}">
+      <Declaration><![CDATA[METHOD PRIVATE SwitchMode : BOOL
+VAR_INPUT
+	bSwitchToHeating : BOOL; //if false switch to cooling
+END_VAR
+VAR_OUTPUT
+	bFinishedSwitchMode : BOOL := FALSE;
+END_VAR
+VAR_INST
+	bRampDownFinished : BOOL := FALSE;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF bSwitchToHeating THEN
+	//turn off pump first		
+	bSetStatusOn_PU193 := FALSE;
+	
+	//SV can switch simultanously
+	bSetStatusOn_RV193 := FALSE;
+	bSetStatusOn_RV393 := TRUE;
+	
+	bFinishedSwitchMode := FALSE;
+	bStartTimer := TRUE;
+	IF Timer.Q THEN
+		bStartTimer := FALSE;
+		bRampDownFinished := TRUE;
+		bFinishedSwitchMode := TRUE;
+		bSetStatusOn_PU393 := TRUE;
+	END_IF
+ELSE
+	//turn off pumps first		
+	bSetStatusOn_PU393 := FALSE;
+
+	//SV can switch simultanously
+	bSetStatusOn_RV193 := TRUE;
+	bSetStatusOn_RV393 := FALSE;
+
+	bFinishedSwitchMode := FALSE;
+	bStartTimer := TRUE;
+	IF Timer.Q THEN
+		bStartTimer := FALSE;
+		bRampDownFinished := TRUE;
+		bFinishedSwitchMode := TRUE;
+		bSetStatusOn_PU193 := TRUE;
+	END_IF
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Working" Id="{4b59df31-d087-44f2-bddd-b63b02233079}">
+      <Declaration><![CDATA[METHOD PROTECTED  Working : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	bSwitchToOperational : BOOL := FALSE;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[LocalControl();
+
+IF ((SwitchToHeating.Q OR SwitchToCooling.Q) OR NOT bFinishedSwitchMode) THEN
+	
+	SwitchMode(bSwitchToHeating := bHeatingMode,
+		bFinishedSwitchMode => bFinishedSwitchMode);
+END_IF;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_AirHandlingUnitSystem">
+      <LineId Id="81" Count="5" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="224" Count="0" />
+      <LineId Id="220" Count="3" />
+      <LineId Id="219" Count="0" />
+      <LineId Id="88" Count="6" />
+      <LineId Id="87" Count="0" />
+      <LineId Id="96" Count="5" />
+      <LineId Id="95" Count="0" />
+      <LineId Id="103" Count="8" />
+      <LineId Id="102" Count="0" />
+      <LineId Id="113" Count="6" />
+      <LineId Id="112" Count="0" />
+      <LineId Id="121" Count="12" />
+      <LineId Id="120" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AirHandlingUnitSystem.CheckError">
+      <LineId Id="8" Count="0" />
+      <LineId Id="13" Count="1" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="15" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AirHandlingUnitSystem.LocalControl">
+      <LineId Id="16" Count="3" />
+      <LineId Id="78" Count="2" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="90" Count="0" />
+      <LineId Id="94" Count="0" />
+      <LineId Id="115" Count="0" />
+      <LineId Id="123" Count="0" />
+      <LineId Id="116" Count="0" />
+      <LineId Id="21" Count="2" />
+      <LineId Id="81" Count="0" />
+      <LineId Id="89" Count="0" />
+      <LineId Id="95" Count="0" />
+      <LineId Id="97" Count="1" />
+      <LineId Id="117" Count="0" />
+      <LineId Id="96" Count="0" />
+      <LineId Id="24" Count="25" />
+      <LineId Id="82" Count="1" />
+      <LineId Id="85" Count="0" />
+      <LineId Id="118" Count="0" />
+      <LineId Id="86" Count="2" />
+      <LineId Id="119" Count="0" />
+      <LineId Id="84" Count="0" />
+      <LineId Id="51" Count="0" />
+      <LineId Id="99" Count="2" />
+      <LineId Id="120" Count="0" />
+      <LineId Id="102" Count="2" />
+      <LineId Id="121" Count="0" />
+      <LineId Id="52" Count="1" />
+      <LineId Id="66" Count="2" />
+      <LineId Id="124" Count="0" />
+      <LineId Id="112" Count="0" />
+      <LineId Id="109" Count="0" />
+      <LineId Id="111" Count="0" />
+      <LineId Id="181" Count="1" />
+      <LineId Id="195" Count="0" />
+      <LineId Id="191" Count="0" />
+      <LineId Id="200" Count="2" />
+      <LineId Id="194" Count="0" />
+      <LineId Id="187" Count="1" />
+      <LineId Id="184" Count="1" />
+      <LineId Id="192" Count="0" />
+      <LineId Id="199" Count="0" />
+      <LineId Id="196" Count="0" />
+      <LineId Id="198" Count="0" />
+      <LineId Id="193" Count="0" />
+      <LineId Id="189" Count="1" />
+      <LineId Id="186" Count="0" />
+      <LineId Id="77" Count="0" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AirHandlingUnitSystem.Operational">
+      <LineId Id="19" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="11" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AirHandlingUnitSystem.RampDown">
+      <LineId Id="17" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="19" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="22" Count="1" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="32" Count="0" />
+      <LineId Id="28" Count="1" />
+      <LineId Id="31" Count="0" />
+      <LineId Id="30" Count="0" />
+      <LineId Id="21" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AirHandlingUnitSystem.RampUp">
+      <LineId Id="63" Count="1" />
+      <LineId Id="85" Count="1" />
+      <LineId Id="65" Count="0" />
+      <LineId Id="87" Count="0" />
+      <LineId Id="66" Count="0" />
+      <LineId Id="71" Count="0" />
+      <LineId Id="88" Count="3" />
+      <LineId Id="76" Count="1" />
+      <LineId Id="79" Count="0" />
+      <LineId Id="98" Count="0" />
+      <LineId Id="94" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AirHandlingUnitSystem.SelectLocalControlMode">
+      <LineId Id="16" Count="11" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AirHandlingUnitSystem.SetSetPointLimits">
+      <LineId Id="9" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AirHandlingUnitSystem.SetState">
+      <LineId Id="7" Count="0" />
+      <LineId Id="9" Count="5" />
+      <LineId Id="8" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AirHandlingUnitSystem.SwitchMode">
+      <LineId Id="68" Count="2" />
+      <LineId Id="72" Count="2" />
+      <LineId Id="77" Count="0" />
+      <LineId Id="108" Count="0" />
+      <LineId Id="79" Count="6" />
+      <LineId Id="87" Count="3" />
+      <LineId Id="92" Count="3" />
+      <LineId Id="98" Count="7" />
+      <LineId Id="107" Count="0" />
+      <LineId Id="14" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_AirHandlingUnitSystem.Working">
+      <LineId Id="13" Count="5" />
+      <LineId Id="7" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

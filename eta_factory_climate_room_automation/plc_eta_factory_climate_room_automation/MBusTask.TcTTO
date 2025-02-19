@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <Task Name="MBusTask" Id="{df22ed53-1d41-49dd-b15e-3c8ac24cb364}">
+    <!--CycleTime in micro seconds.-->
+    <CycleTime>10000</CycleTime>
+    <Priority>1</Priority>
+    <PouCall>
+      <Name>MBus_Communication</Name>
+    </PouCall>
+    <TaskFBGuid>{b46f8b56-1de5-4746-8cfb-ee15a25272bd}</TaskFBGuid>
+    <Fb_init>{452d6ca3-13e2-4e7a-9b50-f505f7f33e38}</Fb_init>
+    <Fb_exit>{2fa42722-0e9e-4834-910c-885652ec17ab}</Fb_exit>
+    <CycleUpdate>{b402c242-85e7-4e82-8dee-1f78e1892812}</CycleUpdate>
+    <PostCycleUpdate>{91dbf480-0acb-4101-81a0-2f8c5b1cfb52}</PostCycleUpdate>
+  </Task>
+</TcPlcObject>

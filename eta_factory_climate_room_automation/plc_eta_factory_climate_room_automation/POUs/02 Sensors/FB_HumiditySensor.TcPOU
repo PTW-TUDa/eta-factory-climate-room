@@ -1,0 +1,50 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_HumiditySensor" Id="{22fdbe35-8890-4e7c-a1dd-a8b878c27712}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_HumiditySensor EXTENDS FB_Sensor
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	fHumidity : REAL; //measured relative humidity
+END_VAR
+VAR
+	//I/O-Links
+	humidity_IN AT %I* : INT;
+	
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="GetState_AI" Id="{b1aeeb65-9d07-41ad-a773-764ead2b4c78}">
+      <Declaration><![CDATA[METHOD GetState_AI : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//Humidity := (humidity_IN / 32767.0)- Offset 10% ;
+fHumidity := (humidity_IN / 32767.0)-0.1;
+
+(*Umrechnungsfaktor muss noch angepasst werden
+0 ist minimaler Wert	:= 0 V -> 0 % Luftfeuchtigkeit
+32767 ist maximaler Wert := 10 V -> 100 % Luftfeuchtigkeit
+*)
+
+//sensor state
+sensorState.fValue := fHumidity;
+sensorState.sUnit := 'percent';]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_HumiditySensor">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_HumiditySensor.GetState_AI">
+      <LineId Id="10" Count="1" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="12" Count="2" />
+      <LineId Id="8" Count="1" />
+      <LineId Id="6" Count="1" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

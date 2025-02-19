@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <GVL Name="MBus" Id="{d9ef974c-b5c5-4e3e-b6c7-04a7dd65d4da}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+VAR_GLOBAL
+	IN_Zaehler AT %I* 		: ST_KL6781inData22B;
+	OUT_Zaehler AT %Q* 		: ST_KL6781outData22B;
+	Communication_MBus		: ST_MBUS_Communication;
+	
+	Telegramm_WMZ_196		: ARRAY[1..cMBUS_MaxTelegrams] OF ST_MBus_Data2;
+	Telegramm_WMZ_193		: ARRAY[1..cMBUS_MaxTelegrams] OF ST_MBus_Data2;
+	Telegramm_WMZ_491		: ARRAY[1..cMBUS_MaxTelegrams] OF ST_MBus_Data2;
+	Telegramm_WMZ_493		: ARRAY[1..cMBUS_MaxTelegrams] OF ST_MBus_Data2;
+	Telegramm_WMZ_393		: ARRAY[1..cMBUS_MaxTelegrams] OF ST_MBus_Data2;
+	Telegramm_WMZ_198		: ARRAY[1..cMBUS_MaxTelegrams] OF ST_MBus_Data2;
+	Telegramm_WMZ_246		: ARRAY[1..cMBUS_MaxTelegrams] OF ST_MBus_Data2;
+	Telegramm_WMZ_247		: ARRAY[1..cMBUS_MaxTelegrams] OF ST_MBus_Data2;
+	Telegramm_WMZ_592		: ARRAY[1..cMBUS_MaxTelegrams] OF ST_MBus_Data2;
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

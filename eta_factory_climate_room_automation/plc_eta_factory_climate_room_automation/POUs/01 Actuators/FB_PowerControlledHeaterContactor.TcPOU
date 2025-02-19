@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_PowerControlledHeaterContactor" Id="{537e7a10-0a68-45e8-b712-1127278d87e0}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_PowerControlledHeaterContactor EXTENDS FB_Actuator2Point
+
+VAR
+	
+	//I/O Links	
+	bSetStatusOn_OUT 	AT %Q*	: 	BOOL := FALSE;		
+	
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[SelectControlMode();]]></ST>
+    </Implementation>
+    <Method Name="SetState_BO" Id="{9694878c-e321-4b69-b3b9-7424d792fe2e}">
+      <Declaration><![CDATA[METHOD SetState_BO : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//output
+bSetStatusOn_OUT := bSetStatusOn;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_PowerControlledHeaterContactor">
+      <LineId Id="126" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_PowerControlledHeaterContactor.SetState_BO">
+      <LineId Id="6" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

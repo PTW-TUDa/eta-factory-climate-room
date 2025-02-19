@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <DUT Name="ST_AmbientState" Id="{4d21dd68-01b7-4440-be4e-da497f8b3d24}">
+    <Declaration><![CDATA[{attribute 'OPC.UA.DA.StructuredType' := '1'}
+TYPE ST_AmbientState :
+STRUCT
+	fRoomTemperature : REAL;
+	fRoomTemperatureUpperNO : REAL;
+	fRoomTemperatureLowerNO : REAL;
+	fRoomTemperatureUpperSO : REAL;
+	fRoomTemperatureLowerSO : REAL;
+	fRoomTemperatureUpperSW : REAL;
+	fRoomTemperatureLowerSW : REAL;
+	fRoomTemperatureUpperNW : REAL;
+	fRoomTemperatureLowerNW : REAL;
+	fOutsideTemperature : REAL;
+	fOutsideTemperatureNorth : REAL;
+	fOutsideTemperatureSouth : REAL;
+	fOutsideTemperatureWest : REAL;
+	fInletAHUTemperature : REAL;
+	fOutletAHUTemperature : REAL;
+	fInletVentilationTemperature : REAL;
+	fOutletVentilationTemperature : REAL;
+	sTemperatureUnit : STRING := 'degreeC';
+	fRelativeHumidity : REAL;
+	sRelativeHumidity : STRING := 'percent';
+	fRoomCO2 : REAL;
+	sRoomCO2 : STRING := 'ppm';
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

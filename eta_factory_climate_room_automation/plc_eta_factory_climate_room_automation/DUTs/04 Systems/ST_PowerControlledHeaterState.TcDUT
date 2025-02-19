@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <DUT Name="ST_PowerControlledHeaterState" Id="{be433792-fe1c-4a3a-a6a9-bdd5d60d3b69}">
+    <Declaration><![CDATA[{attribute 'OPC.UA.DA.StructuredType' := '1'}
+TYPE ST_PowerControlledHeaterState :
+STRUCT
+	fPowerTotal : REAL;
+	sPowerUnit : STRING := 'W';
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

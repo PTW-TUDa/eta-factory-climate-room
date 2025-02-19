@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.6">
+  <POU Name="FB_TemperatureSensor" Id="{a8453651-dd5f-4033-8f9b-1f0387395629}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_TemperatureSensor EXTENDS FB_Sensor
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	fTemperature : REAL; //measured temperature in °C
+END_VAR
+VAR
+	//I/O-Links
+	temperature_IN AT %I* : INT;
+	
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="GetState_AI" Id="{e2bef95d-9f4b-49d2-9a05-4a967107124d}">
+      <Declaration><![CDATA[METHOD GetState_AI : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fTemperature := (temperature_IN / 32767.0)*50.0;  //conversion: scaled to temperature 0-50 °C from 0 - 10 V
+
+//sensor state
+sensorState.fValue := fTemperature;
+sensorState.sUnit := 'degreeC';]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_TemperatureSensor">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TemperatureSensor.GetState_AI">
+      <LineId Id="13" Count="0" />
+      <LineId Id="10" Count="2" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
